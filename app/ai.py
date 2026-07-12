@@ -13,7 +13,7 @@ class GeminiProvider:
     def __init__(self):
         #Configure the google genai client with our API key
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model = "gemini-1.5-flash"
+        self.model = "gemini-flash-latest"
     async def analyze_text(self, prompt: str) -> str:
         """sends the prompt t Googles cloud ai using the nw=ew google-genai SDK. uses the client.aio AsyncIO interface to avoid blocking"""
         try:

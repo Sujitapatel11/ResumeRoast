@@ -13,6 +13,6 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = "YOUR_GEMINI_API_KEY"
     #Local AI config
     OLLAMA_BASE_URL: str = "http://host.docker.internal:11434/api/generate"
-    model_config = SettingsConfigDict(env_files=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 #Initialize settings
 settings = Settings()
