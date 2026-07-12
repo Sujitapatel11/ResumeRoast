@@ -31,7 +31,9 @@ class LlamaProvider:
         self.model_name = "llama3.2:1b"
     async def analyze_text(self, prompt: str) -> str:
         """ sends the prompt to a local OLLAMA instance via HTTP."""
-        payload -{"model": self.model_name, "prompt": prompt, "stream": False}
+        payload ={"model": self.model_name, 
+        "prompt": prompt,
+        "stream": False}
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(self.url, json=payload, timeout=60.0)
@@ -42,9 +44,9 @@ class LlamaProvider:
                 return f"OLLAMA Request Error: {str(e)}"
     #THE FACTORY
     #THIS FUNCTION ACTS AS A SWIHCBOARD
-    def get_ai_provider() -> AIProvider:
-        if settings.AI_MODE == "local":
-            return LlamaProvider()
-        else:
-            return GeminiProvider()
+def get_ai_provider() -> AIProvider:
+    if settings.AI_MODE == "local":
+        return LlamaProvider()
+    else:
+        return GeminiProvider()
         

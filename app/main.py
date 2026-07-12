@@ -4,7 +4,8 @@ from typing import Annotated, List
 from contextlib import asynccontextmanager
 #Import our local modules 
 from app.database import create_db_and_tables, get_session
-from app.models import Joblisting
+from app.models import Joblisting, AnalysisRequest
+from app.ai import get_ai_provider, AIProvider
 
 #LIFESPAN CONTEXT MANAGER
 #This run code before the app starts and after it shut down.
@@ -24,10 +25,7 @@ app = FastAPI(
 #Define a Dependency Injection type alias
 #This make our path operation cleaner.
 SessionDep = Annotated[Session, Depends(get_session)]
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "message": "ResumeRoast API is running smoothly!"}
+AIDep = Annotated[AIProvider, Depends(get_ai_provider)]
 #Job Routes
 #Create a Job (POST)
 @app.post("/jobs", response_model=Joblisting)
@@ -63,3 +61,20 @@ async def health_check():
         "status": "ok",
         "message": "ResumeRoast API is running smoothly!"
     }
+@app.post("/analyze")
+async def analyze_resume_text(request: AnalysisRequest, ai: AIDep):
+    """ sends rwa text to configured AI provider. 
+    Enforces a strict JSON output format (Score + Critique) to match PRD requirements.
+    """
+    prompts = f"""
+    You are expert tech recruiter. Analyze the followig resume text againts a generic Senior Developer role.
+    Return your response in this exact JSON format:
+    {{
+        "score": (interger 0-100),
+        "critique": (string, concise summary of gaps and strengths)
+    }}
+    Resume Text:
+    {request.text}
+    """
+    analysis = await ai.analyze_text(prompts)
+    return {"analysis": analysis}

@@ -3,6 +3,8 @@ from typing import Optional
 from sqlmodel import SQLModel, Field
 from pydantic import field_validator, ConfigDict
 from datetime import datetime
+class AnalysisRequest(SQLModel):
+    text: str
 class Joblisting(SQLModel, table=True):
     #this forces pydantic to validate data even when we just assign values.
     #It prevents SQLModel from bypassing our rules for performance.
