@@ -1,20 +1,33 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlmodel import Session, select
 from typing import Annotated, List
 from contextlib import asynccontextmanager
-#Import our local modules 
+
+import uuid
+import io
+import pypdf
+
+# Import our local modules
 from app.database import create_db_and_tables, get_session
 from app.models import Joblisting, AnalysisRequest
 from app.ai import get_ai_provider, AIProvider
+from app.utils import init_storage, get_s3_client
+from app.config import settings
 
-#LIFESPAN CONTEXT MANAGER
-#This run code before the app starts and after it shut down.
-#we use it to create our database tables automatically on startup.
+
+# LIFESPAN CONTEXT MANAGER
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("Startup: Creating database tables...")
     create_db_and_tables()
+
+    print("Startup: Checking Object Storage....")
+    init_storage()
+
     yield
+
     print("Shutting down...")
+
 
 app = FastAPI(
     title="ResumeRoast",
@@ -22,30 +35,15 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-#Define a Dependency Injection type alias
-#This make our path operation cleaner.
+
+# Dependency Injection
 SessionDep = Annotated[Session, Depends(get_session)]
 AIDep = Annotated[AIProvider, Depends(get_ai_provider)]
-#Job Routes
-#Create a Job (POST)
-@app.post("/jobs", response_model=Joblisting)
-def create_job(job: Joblisting, session: SessionDep):
-    """Create a new job listing in the database"""
-    session.add(job) #Add to the "Shopping cart"
-    session.commit() #chrckout (save to db)
-    session.refresh(job) #get the new ID form the DB
-    return job 
-#list all the Jobs(Get)
-@app.get("/jobs", response_model=List[Joblisting])
-def list_jobs(session: SessionDep):
-    """
-     Retreive all open job positions
 
-    """
-    #Write the query : "SELECT * FROM Joblisting"
-    statement = select(Joblisting)
-    jobs = session.exec(statement).all()
-    return jobs
+
+# -----------------------------
+# Root
+# -----------------------------
 @app.get("/")
 def root():
     return {
@@ -53,28 +51,130 @@ def root():
     }
 
 
-# Health check endpoint
+# -----------------------------
+# Health Check
+# -----------------------------
 @app.get("/health")
 async def health_check():
-    """A simple health check endpoint to verify that the API is running."""
     return {
         "status": "ok",
         "message": "ResumeRoast API is running smoothly!"
     }
+
+
+# -----------------------------
+# Job Routes
+# -----------------------------
+@app.post("/jobs", response_model=Joblisting)
+def create_job(job: Joblisting, session: SessionDep):
+    """Create a new job listing"""
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    return job
+
+
+@app.get("/jobs", response_model=List[Joblisting])
+def list_jobs(session: SessionDep):
+    """Retrieve all job listings"""
+
+    statement = select(Joblisting)
+    jobs = session.exec(statement).all()
+
+    return jobs
+
+
+# -----------------------------
+# Resume Analysis
+# -----------------------------
 @app.post("/analyze")
 async def analyze_resume_text(request: AnalysisRequest, ai: AIDep):
-    """ sends rwa text to configured AI provider. 
-    Enforces a strict JSON output format (Score + Critique) to match PRD requirements.
     """
+    Sends raw resume text to configured AI provider.
+    """
+
     prompts = f"""
-    You are expert tech recruiter. Analyze the followig resume text againts a generic Senior Developer role.
-    Return your response in this exact JSON format:
-    {{
-        "score": (interger 0-100),
-        "critique": (string, concise summary of gaps and strengths)
-    }}
-    Resume Text:
-    {request.text}
-    """
+You are an expert tech recruiter.
+
+Analyze the following resume against a generic Senior Developer role.
+
+Return your response in this exact JSON format:
+
+{{
+    "score": (integer 0-100),
+    "critique": (string, concise summary of strengths and weaknesses)
+}}
+
+Resume Text:
+
+{request.text}
+"""
+
     analysis = await ai.analyze_text(prompts)
-    return {"analysis": analysis}
+
+    return {
+        "analysis": analysis
+    }
+
+
+# -----------------------------
+# Resume Upload
+# -----------------------------
+@app.post("/upload")
+async def upload_resume(file: UploadFile = File(...)):
+    """
+    Accepts a PDF file, validates it, extracts text,
+    and uploads it to MinIO.
+    """
+
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Corrupt or invalid PDF file."
+        )
+
+    await file.seek(0)
+
+    content = await file.read()
+
+    try:
+        pdf_reader = pypdf.PdfReader(io.BytesIO(content))
+
+        extracted_text = ""
+
+        for page in pdf_reader.pages:
+            extracted_text += page.extract_text() or ""
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract text: {str(e)}"
+        )
+
+    file_id = str(uuid.uuid4())
+    s3_key = f"{file_id}.pdf"
+
+    try:
+        s3 = get_s3_client()
+
+        s3.put_object(
+            Bucket=settings.MINIO_BUCKET,
+            Key=s3_key,
+            Body=content,
+            ContentType="application/pdf"
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Storage Error: {str(e)}"
+        )
+
+    return {
+        "file_id": file_id,
+        "filename": file.filename,
+        "s3_key": s3_key,
+        "extracted_text_preview": extracted_text[:200] + "..."
+    }
