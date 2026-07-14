@@ -2,7 +2,7 @@
 from typing import Protocol, Any
 from google import genai
 import httpx
-from app.config import settings
+from app.core.config import settings
 #The interface i.e protocol
 #This defines the rules. Any class that implements that claims to be "AIProvider"
 #MUST IMPLEMENT THE "analyze_text" method.

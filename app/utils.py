@@ -1,7 +1,7 @@
 #purpose utility services (MinIO Storage and PDF Processing)
 import boto3
 from botocore.exceptions import ClientError
-from app.config import settings
+from app.core.config import settings
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

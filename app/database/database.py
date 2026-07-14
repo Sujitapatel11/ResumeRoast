@@ -1,7 +1,7 @@
 #create  database connection and session management
 from sqlmodel import SQLModel, create_engine, Session
 from typing import Generator
-from app.config import settings
+from app.core.config import settings
 #the connection string in a real app, we would use an .evn file. for now we hardcore the docker defualts 
 #formats: postgresql:resume_user:resume_pass@localhost:5432/resume_db
 #DATABASE_URL = settings.DATABASE_URL

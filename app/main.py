@@ -8,11 +8,11 @@ import io
 import pypdf
 
 # Import our local modules
-from app.database import create_db_and_tables, get_session
+from app.database.database import create_db_and_tables, get_session
 from app.models import Joblisting, AnalysisRequest
 from app.ai import get_ai_provider, AIProvider
 from app.utils import init_storage, get_s3_client
-from app.config import settings
+from app.core.config import settings
 
 
 # LIFESPAN CONTEXT MANAGER
