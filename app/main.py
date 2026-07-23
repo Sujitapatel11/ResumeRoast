@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlmodel import Session, select
 from typing import Annotated, List
 from contextlib import asynccontextmanager
+from app.api.router import router as api_router
 
 import uuid
 import io
@@ -9,7 +10,7 @@ import pypdf
 
 # Import our local modules
 from app.database.database import create_db_and_tables, get_session
-from app.modules.jobs.modules import Joblisting, AnalysisRequest
+from app.modules.jobs.models import Joblisting, AnalysisRequest
 from app.services.ai.factory import get_ai_provider
 from app.services.ai.provider import AIProvider
 from app.services.storage import init_storage, get_s3_client

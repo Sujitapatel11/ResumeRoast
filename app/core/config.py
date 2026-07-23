@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     DATABASE_URL: str = "postgresql://resume_user:resume_pass@localhost:5433/resume_db"
+    # Redis
+    REDIS_URL: str = "redis://localhost:6380/0"
 
     AI_MODE: str = "gemini"
     GEMINI_API_KEY: str = "YOUR_GEMINI_API_KEY"
