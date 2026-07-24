@@ -1,17 +1,32 @@
-#create  database connection and session management
 from sqlmodel import SQLModel, create_engine, Session
-from typing import Generator
+from sqlalchemy import text
 from app.core.config import settings
-#the connection string in a real app, we would use an .evn file. for now we hardcore the docker defualts 
-#formats: postgresql:resume_user:resume_pass@localhost:5432/resume_db
-#DATABASE_URL = settings.DATABASE_URL
-connection_string = settings.DATABASE_URL
-#The engine , the enginw is the factory that creates the connection to the database
-engine =create_engine(connection_string, echo=settings.DEBUG)
-#the dependency, this function yields a session for each requesr abd closes it aferwards 
-def get_session() ->Generator[Session, None, None]:
-    with Session(engine) as session:
-        yield session
-#The Initialization, This creates all tables defined in our models
+
+def get_engine():
+    try:
+        engine = create_engine(
+            settings.DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+        )
+        # Test connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return engine
+    except Exception:
+        # Fallback to SQLite when PostgreSQL is offline
+        connect_args = {"check_same_thread": False}
+        return create_engine(
+            settings.SQLITE_URL,
+            echo=False,
+            connect_args=connect_args
+        )
+
+engine = get_engine()
+
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+
+def get_session():
+    with Session(engine) as session:
+        yield session
